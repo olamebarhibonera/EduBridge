@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useAuth } from '../contexts';
+import { useAuth, useTheme } from '../contexts';
+import { themeColors } from '../theme/colors';
 import { MobileLayout } from '../components/MobileLayout';
 import { HomeScreen } from '../screens/HomeScreen';
 import { TranslateScreen } from '../screens/TranslateScreen';
@@ -14,6 +17,9 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 import { AuthCallbackScreen } from '../screens/AuthCallbackScreen';
 import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
+import { WelcomeScreen } from '../screens/WelcomeScreen';
+
+const ONBOARDING_KEY = 'edubridge_onboarding_complete';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -33,11 +39,42 @@ function MainTabs() {
   );
 }
 
+function LoadingScreen() {
+  const { theme } = useTheme();
+  const colors = themeColors[theme];
+
+  return (
+    <View style={[styles.loadingContainer, { backgroundColor: colors.bgPrimary }]}>
+      <View style={[styles.loadingLogo, { backgroundColor: colors.accent }]}>
+        <Text style={styles.loadingLogoText}>E</Text>
+      </View>
+      <Text style={[styles.loadingTitle, { color: colors.textPrimary }]}>EduBridge</Text>
+      <ActivityIndicator size="small" color={colors.accent} style={styles.spinner} />
+    </View>
+  );
+}
+
 export function RootNavigator() {
   const { loading, user } = useAuth();
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
-  if (loading) {
-    return null;
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY).then((value) => {
+      setShowOnboarding(value !== 'true');
+    });
+  }, []);
+
+  const completeOnboarding = async () => {
+    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    setShowOnboarding(false);
+  };
+
+  if (loading || showOnboarding === null) {
+    return <LoadingScreen />;
+  }
+
+  if (showOnboarding) {
+    return <WelcomeScreen onComplete={completeOnboarding} />;
   }
 
   return (
@@ -59,3 +96,32 @@ export function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingLogo: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  loadingLogoText: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  loadingTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  spinner: {
+    marginTop: 16,
+  },
+});

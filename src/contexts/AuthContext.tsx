@@ -3,22 +3,39 @@ import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../utils/supabase';
 import { parseAuthTokensFromUrl, isAuthCallbackUrl } from '../utils/authDeepLink';
-import type { User } from '../types';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name?: string;
+  university?: string;
+  course?: string;
+  phone?: string;
+  avatar_url?: string;
+  role: string;
+  status: string;
+  preferred_language?: string;
+  user_metadata?: Record<string, unknown>;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: UserProfile | null;
   session: Session | null;
   loading: boolean;
+  isAdmin: boolean;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
+  isAdmin: false,
   signOut: async () => {},
   refreshSession: async () => {},
+  updateProfile: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -38,28 +55,49 @@ async function handleAuthUrl(url: string | null): Promise<boolean> {
   }
 }
 
+async function fetchProfile(userId: string): Promise<UserProfile | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  return data;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const handledInitialUrl = useRef(false);
 
-  const refreshSession = async () => {
-    try {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-      if (currentSession?.user) {
-        setSession(currentSession);
+  const setSessionAndProfile = async (currentSession: Session | null) => {
+    if (currentSession?.user) {
+      setSession(currentSession);
+      const profile = await fetchProfile(currentSession.user.id);
+      if (profile) {
         setUser({
-          id: currentSession.user.id,
-          email: currentSession.user.email ?? '',
+          ...profile,
           user_metadata: currentSession.user.user_metadata,
         });
       } else {
-        setSession(null);
-        setUser(null);
+        setUser({
+          id: currentSession.user.id,
+          email: currentSession.user.email ?? '',
+          role: 'student',
+          status: 'active',
+          user_metadata: currentSession.user.user_metadata,
+        });
       }
+    } else {
+      setSession(null);
+      setUser(null);
+    }
+  };
+
+  const refreshSession = async () => {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      await setSessionAndProfile(currentSession);
     } catch (error) {
       console.error('Session refresh error:', error);
       setSession(null);
@@ -80,26 +118,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     initAuth();
 
-    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      if (currentSession?.user) {
-        setSession(currentSession);
-        setUser({
-          id: currentSession.user.id,
-          email: currentSession.user.email ?? '',
-          user_metadata: currentSession.user.user_metadata,
-        });
-      } else {
-        setSession(null);
-        setUser(null);
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
+      async (_event, currentSession) => {
+        await setSessionAndProfile(currentSession);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
 
     const linkSub = Linking.addEventListener('url', async ({ url }) => {
       const handled = await handleAuthUrl(url);
-      if (handled) {
-        await refreshSession();
-      }
+      if (handled) await refreshSession();
     });
 
     return () => {
@@ -118,8 +146,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id);
+    if (!error) {
+      setUser({ ...user, ...updates });
+    }
+  };
+
+  const isAdmin = user?.role === 'admin';
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, refreshSession }}>
+    <AuthContext.Provider
+      value={{ user, session, loading, isAdmin, signOut, refreshSession, updateProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );
