@@ -187,7 +187,7 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#8b5cf6' },
+  container: { flex: 1, backgroundColor: '#ec4899' },
   scroll: { flexGrow: 1, padding: 24, justifyContent: 'center', paddingVertical: 48 },
   hero: { alignItems: 'center', marginBottom: 24 },
   heroEmoji: { fontSize: 48, marginBottom: 16 },
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   eyeBtn: { position: 'absolute', right: 12, top: 14 },
   primaryBtn: {
     height: 48,
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#db2777',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

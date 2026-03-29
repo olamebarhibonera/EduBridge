@@ -7,7 +7,7 @@ import { themeColors } from '../theme/colors';
 import { supabase } from '../utils/supabase';
 
 const quickActions = [
-  { icon: 'language' as const, label: 'Translate', path: 'Translate', color: '#8b5cf6' },
+  { icon: 'language' as const, label: 'Translate', path: 'Translate', color: '#ec4899' },
   { icon: 'wallet' as const, label: 'Budget', path: 'Budget', color: '#d97706' },
   { icon: 'location' as const, label: 'Services', path: 'Services', color: '#2563eb' },
 ];
@@ -19,7 +19,7 @@ const emergencyContacts = [
 ];
 
 const essentialServices = [
-  { icon: 'book', label: 'Study Resources', color: '#7c3aed' },
+  { icon: 'book', label: 'Study Resources', color: '#ec4899' },
   { icon: 'restaurant', label: 'Restaurants', color: '#ea580c' },
   { icon: 'bus', label: 'Transport', color: '#16a34a' },
   { icon: 'call', label: 'SIM Cards', color: '#2563eb' },

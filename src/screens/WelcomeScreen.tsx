@@ -20,8 +20,8 @@ const slides = [
     subtitle: 'Your companion for studying in Kenya',
     description:
       'EduBridge helps international students navigate life in Kenya with translation, budgeting, local services, and more.',
-    color: '#8b5cf6',
-    bgGradient: ['#8b5cf6', '#7c3aed'],
+    color: '#ec4899',
+    bgGradient: ['#ec4899', '#db2777'],
   },
   {
     id: '2',

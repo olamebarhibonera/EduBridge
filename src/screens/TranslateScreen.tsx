@@ -53,6 +53,20 @@ interface SavedPhrase {
   category: string;
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_match, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_match, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
 async function translateText(text: string, from: string, to: string): Promise<string> {
   try {
     const res = await fetch(
@@ -60,7 +74,7 @@ async function translateText(text: string, from: string, to: string): Promise<st
     );
     const data = await res.json();
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      const result = data.responseData.translatedText;
+      const result = decodeHtmlEntities(data.responseData.translatedText);
       if (result.toUpperCase() === result && text.toUpperCase() !== text) {
         return 'Translation unavailable for this language pair';
       }
