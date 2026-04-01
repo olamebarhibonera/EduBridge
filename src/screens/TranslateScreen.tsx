@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -53,16 +53,13 @@ interface SavedPhrase {
   category: string;
 }
 
-function decodeTranslationResult(text: string): string {
-  let decoded = text;
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch {
-    decoded = decoded.replace(/%20/g, ' ').replace(/%([0-9A-Fa-f]{2})/g, (_m, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    );
-  }
-  return decoded
+function cleanTranslation(text: string): string {
+  let s = text;
+  s = s.replace(/%([0-9A-Fa-f]{2})/g, (_m, hex) => {
+    try { return String.fromCharCode(parseInt(hex, 16)); }
+    catch { return _m; }
+  });
+  s = s
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -73,6 +70,7 @@ function decodeTranslationResult(text: string): string {
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_match, dec) => String.fromCharCode(Number(dec)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_match, hex) => String.fromCharCode(parseInt(hex, 16)));
+  return s;
 }
 
 async function translateText(text: string, from: string, to: string): Promise<string> {
@@ -82,7 +80,7 @@ async function translateText(text: string, from: string, to: string): Promise<st
     );
     const data = await res.json();
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      const result = decodeTranslationResult(data.responseData.translatedText);
+      const result = cleanTranslation(data.responseData.translatedText);
       if (result.toUpperCase() === result && text.toUpperCase() !== text) {
         return 'Translation unavailable for this language pair';
       }
@@ -138,25 +136,27 @@ export function TranslateScreen() {
     setLoading(false);
   };
 
-  const handleAutoTranslate = useCallback(
-    (() => {
-      let timeout: ReturnType<typeof setTimeout>;
-      return (text: string) => {
-        setSourceText(text);
-        setTranslatedText('');
-        clearTimeout(timeout);
-        if (text.trim().length >= 2) {
-          timeout = setTimeout(async () => {
-            setLoading(true);
-            const result = await translateText(text, sourceLang, targetLang);
-            setTranslatedText(result);
-            setLoading(false);
-          }, 600);
-        }
-      };
-    })(),
-    [sourceLang, targetLang]
-  );
+  const langRef = useRef({ sourceLang, targetLang });
+  langRef.current = { sourceLang, targetLang };
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleAutoTranslate = (text: string) => {
+    setSourceText(text);
+    setTranslatedText('');
+    clearTimeout(debounceRef.current);
+    if (text.trim().length >= 2) {
+      debounceRef.current = setTimeout(async () => {
+        setLoading(true);
+        const result = await translateText(
+          text,
+          langRef.current.sourceLang,
+          langRef.current.targetLang
+        );
+        setTranslatedText(result);
+        setLoading(false);
+      }, 600);
+    }
+  };
 
   const swapLanguages = () => {
     setSourceLang(targetLang);
