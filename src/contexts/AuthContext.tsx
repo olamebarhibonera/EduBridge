@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../utils/supabase';
 import { parseAuthTokensFromUrl, isAuthCallbackUrl } from '../utils/authDeepLink';
@@ -137,12 +138,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    setUser(null);
+    setSession(null);
     try {
       await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-    } catch (error) {
-      console.error('Sign out error:', error);
+    } catch {
+      // Ignore errors — local state is already cleared
+    }
+    // Belt-and-suspenders: clear persisted session from storage
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const authKeys = keys.filter((k) => k.startsWith('sb-') || k.includes('supabase'));
+      if (authKeys.length > 0) await AsyncStorage.multiRemove(authKeys);
+    } catch {
+      // Ignore storage cleanup errors
     }
   };
 
