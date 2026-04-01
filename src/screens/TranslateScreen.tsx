@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -53,40 +53,23 @@ interface SavedPhrase {
   category: string;
 }
 
-function cleanTranslation(text: string): string {
-  let s = text;
-  s = s.replace(/%([0-9A-Fa-f]{2})/g, (_m, hex) => {
-    try { return String.fromCharCode(parseInt(hex, 16)); }
-    catch { return _m; }
-  });
-  s = s
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#x2F;/g, '/')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_match, dec) => String.fromCharCode(Number(dec)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_match, hex) => String.fromCharCode(parseInt(hex, 16)));
-  return s;
-}
-
 async function translateText(text: string, from: string, to: string): Promise<string> {
   try {
-    const res = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`
-    );
+    const url =
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (!res.ok) return 'Translation service error — try again';
     const data = await res.json();
-    if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      const result = cleanTranslation(data.responseData.translatedText);
-      if (result.toUpperCase() === result && text.toUpperCase() !== text) {
-        return 'Translation unavailable for this language pair';
-      }
-      return result;
+
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      const translated = data[0]
+        .filter((seg: unknown) => Array.isArray(seg) && seg[0])
+        .map((seg: unknown[]) => seg[0])
+        .join('');
+      if (translated.trim()) return translated.trim();
     }
-    return 'Translation unavailable';
+
+    return 'Translation unavailable for this language pair';
   } catch {
     return 'Network error — check your connection';
   }
@@ -136,26 +119,8 @@ export function TranslateScreen() {
     setLoading(false);
   };
 
-  const langRef = useRef({ sourceLang, targetLang });
-  langRef.current = { sourceLang, targetLang };
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-
-  const handleAutoTranslate = (text: string) => {
+  const handleTextChange = (text: string) => {
     setSourceText(text);
-    setTranslatedText('');
-    clearTimeout(debounceRef.current);
-    if (text.trim().length >= 2) {
-      debounceRef.current = setTimeout(async () => {
-        setLoading(true);
-        const result = await translateText(
-          text,
-          langRef.current.sourceLang,
-          langRef.current.targetLang
-        );
-        setTranslatedText(result);
-        setLoading(false);
-      }, 600);
-    }
   };
 
   const swapLanguages = () => {
@@ -220,7 +185,7 @@ export function TranslateScreen() {
           placeholder="Type to translate..."
           placeholderTextColor={colors.textTertiary}
           value={sourceText}
-          onChangeText={handleAutoTranslate}
+          onChangeText={handleTextChange}
           multiline
           numberOfLines={4}
         />
